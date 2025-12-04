@@ -1,0 +1,32 @@
+{
+  "name": "auth-system",
+  "version": "1.0.0",
+  "description": "Better Auth service - Shared authentication for WebRoot sites",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "prod": "NODE_ENV=production node src/index.js",
+    "migrate": "node src/migrate.js"
+  },
+  "keywords": [
+    "better-auth",
+    "jwt",
+    "oauth",
+    "authentication"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-auth": "^1.0.7",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.1.5",
+    "pg": "^8.13.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
