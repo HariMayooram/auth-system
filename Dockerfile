@@ -11,12 +11,10 @@ RUN npm ci --only=production
 # Copy source code
 COPY src ./src
 
-# Expose port
-EXPOSE 3002
+# Expose port (Cloud Run will set PORT env var)
+EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+# Health check removed - Cloud Run provides its own health checks
 
 # Start the server
 CMD ["node", "src/index.js"]

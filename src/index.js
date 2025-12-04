@@ -55,11 +55,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check endpoint (MUST be before CORS to allow Cloud Run health checks)
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    service: "better-auth",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development",
+  });
+});
+
 // CORS configuration - allow credentials for cookie-based auth
 app.use(
   cors({
     origin: (origin, callback) => {
-      // In production, reject requests without origin header
+      // In production, reject requests without origin header (except health checks handled above)
       if (!origin) {
         return process.env.NODE_ENV === 'production'
           ? callback(new Error('Origin required'))
@@ -106,16 +116,6 @@ app.use('/api/auth/', authRateLimiter);
 
 // Apply stricter rate limiting to OAuth callback endpoints
 app.use('/api/auth/callback/', oauthCallbackLimiter);
-
-// Health check endpoint (before Better Auth handler)
-app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "better-auth",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
-  });
-});
 
 // Mount Better Auth routes at /api/auth (MUST come before express.json())
 app.all("/api/auth/*", toNodeHandler(auth));
