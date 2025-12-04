@@ -1,10 +1,9 @@
 import { betterAuth } from "better-auth";
 // import { Pool } from "pg";
 import dotenv from "dotenv";
-import { webcrypto } from "crypto";
 
 dotenv.config();
-globalThis.crypto = webcrypto;
+// Note: globalThis.crypto is available natively in Node.js 20+
 
 // Create PostgreSQL connection pool (optional)
 // Commented out to run in stateless mode without database
