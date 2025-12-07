@@ -1,21 +1,20 @@
 import { betterAuth } from "better-auth";
-// import { Pool } from "pg";
+import { memoryAdapter } from "better-auth/adapters/memory";
 import dotenv from "dotenv";
 
 dotenv.config();
 // Note: globalThis.crypto is available natively in Node.js 20+
 
-// Create PostgreSQL connection pool (optional)
-// Commented out to run in stateless mode without database
-// const pool = new Pool({
-//   connectionString: process.env.DATABASE_URL,
-// });
+// JWT-only mode with in-memory OAuth state storage
+// IMPORTANT: In-memory storage works for development or single-instance deployments
+// Data is lost on server restart. For production, consider using a database.
 
 export const auth = betterAuth({
-  // Database configuration - disabled for stateless mode
-  // database: pool,
+  // Built-in memory adapter - no external database required
+  // Stores OAuth state, sessions, and user data in memory (JWT-based)
+  database: memoryAdapter(),
 
-  // Secret for signing JWTs (must be at least 32 characters)
+  // Secret for signing JWTs and cookies (must be at least 32 characters)
   secret: (() => {
     if (!process.env.BETTER_AUTH_SECRET) {
       throw new Error("BETTER_AUTH_SECRET environment variable is required and must be at least 32 characters");
@@ -34,15 +33,14 @@ export const auth = betterAuth({
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
     : ["http://localhost:8887", "http://localhost:8888"],
 
-  // Session configuration
+  // Session configuration - uses memory adapter for storage
   session: {
-    // Use cookies for session storage
+    expiresIn: 60 * 60 * 24, // 24 hours
+    updateAge: 60 * 60 * 4, // Update session every 4 hours
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60 // 5 minutes
-    },
-    expiresIn: 60 * 60 * 24, // 24 hours (reduced from 7 days for security)
-    updateAge: 60 * 60 * 4 // Update session every 4 hours
+      maxAge: 60 * 60 * 24 // 24 hours - cache session in cookies
+    }
   },
 
   // Email and password authentication - Disabled (OAuth-only)
@@ -85,10 +83,11 @@ export const auth = betterAuth({
     },
   },
 
-  // Advanced options
+  // Advanced options - proper cookie security for OAuth
   advanced: {
-    // Generate shorter session tokens
     useSecureCookies: process.env.NODE_ENV === "production",
+    // IMPORTANT: sameSite must be "lax" for OAuth redirects to work
+    // "none" would require all cookies to be secure (HTTPS only)
     cookieSameSite: "lax",
     crossSubDomainCookies: {
       enabled: false,

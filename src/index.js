@@ -12,6 +12,9 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 const HOST = process.env.HOST || "0.0.0.0";
 
+// Trust proxy for Cloud Run (required for proper IP detection and rate limiting)
+app.set('trust proxy', true);
+
 // Parse allowed origins from environment
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map(origin => origin.trim())
@@ -65,15 +68,19 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Favicon route to prevent 404 errors
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end(); // No Content
+});
+
 // CORS configuration - allow credentials for cookie-based auth
 app.use(
   cors({
     origin: (origin, callback) => {
-      // In production, reject requests without origin header (except health checks handled above)
+      // OAuth callbacks from providers don't include Origin header - allow them
+      // Health check endpoint handled before this middleware
       if (!origin) {
-        return process.env.NODE_ENV === 'production'
-          ? callback(new Error('Origin required'))
-          : callback(null, true); // Allow in development for testing
+        return callback(null, true); // Allow requests without origin (OAuth callbacks)
       }
 
       if (allowedOrigins.includes(origin)) {
