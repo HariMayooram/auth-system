@@ -10,10 +10,6 @@ dotenv.config();
 // Data is lost on server restart. For production, consider using a database.
 
 export const auth = betterAuth({
-  // Built-in memory adapter - no external database required
-  // Stores OAuth state, sessions, and user data in memory (JWT-based)
-  database: memoryAdapter(),
-
   // Secret for signing JWTs and cookies (must be at least 32 characters)
   secret: (() => {
     if (!process.env.BETTER_AUTH_SECRET) {
@@ -26,12 +22,32 @@ export const auth = betterAuth({
   })(),
 
   // Base URL where this auth service runs
-  baseURL: process.env.BASE_URL || "http://localhost:3002",
+  baseURL: (() => {
+    // Fallback to localhost for development if BASE_URL is not provided
+    if (process.env.NODE_ENV !== 'production') {
+      return process.env.BASE_URL || "http://localhost:3002";
+    }
+
+    // In production, BASE_URL is required
+    if (!process.env.BASE_URL) {
+      throw new Error("BASE_URL environment variable is required in production");
+    }
+    return process.env.BASE_URL;
+  })(),
 
   // Trusted origins (frontends that can use this auth service)
-  trustedOrigins: process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-    : ["http://localhost:8887", "http://localhost:8888"],
+  trustedOrigins: (() => {
+    const allowedOrigins = process.env.ALLOWED_ORIGINS;
+    if (!allowedOrigins) {
+      // Fallback to localhost for development if ALLOWED_ORIGINS is not set
+      if (process.env.NODE_ENV !== 'production') {
+        return ["http://localhost:8887", "http://localhost:8888"];
+      }
+      // In production, ALLOWED_ORIGINS is required
+      throw new Error("ALLOWED_ORIGINS environment variable is required in production");
+    }
+    return allowedOrigins.split(',').map(origin => origin.trim());
+  })(),
 
   // Session configuration - uses memory adapter for storage
   session: {
@@ -41,6 +57,12 @@ export const auth = betterAuth({
       enabled: true,
       maxAge: 60 * 60 * 24 // 24 hours - cache session in cookies
     }
+  },
+
+  // Verification configuration - uses memory adapter for storage
+  verification: {
+    adapter: memoryAdapter(),
+    expiresIn: 60 * 5, // 5 minutes for verification tokens
   },
 
   // Email and password authentication - Disabled (OAuth-only)
