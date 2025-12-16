@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
+
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./auth.js";
 
@@ -62,7 +63,7 @@ app.use((req, res, next) => {
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
-    service: "better-auth",
+    service: "better-auth-stateless", // Updated service name
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",
   });
@@ -97,64 +98,12 @@ app.use(
   })
 );
 
-// Rate limiting for authentication endpoints
-const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per windowMs
-  message: 'Too many authentication attempts, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  // Skip rate limiting in development mode
-  skip: (req) => process.env.NODE_ENV === 'development',
-});
-
-// Stricter rate limit for OAuth callback endpoints to prevent abuse
-const oauthCallbackLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 OAuth attempts per 15 minutes
-  message: 'Too many authentication attempts, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => process.env.NODE_ENV === 'development',
-});
-
-// Apply rate limiting to all auth endpoints
-app.use('/api/auth/', authRateLimiter);
-
-// Apply stricter rate limiting to OAuth callback endpoints
-app.use('/api/auth/callback/', oauthCallbackLimiter);
-
-// Mount Better Auth routes at /api/auth (MUST come before express.json())
-app.all("/api/auth/*", toNodeHandler(auth));
-
-// Parse JSON bodies (MUST come after Better Auth handler)
+// Parse JSON bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Get auth status (for debugging)
-app.get("/api/auth-status", async (req, res) => {
-  try {
-    const session = await auth.api.getSession({
-      headers: req.headers,
-    });
-
-    if (session) {
-      res.json({
-        authenticated: true,
-        user: session.user,
-      });
-    } else {
-      res.json({
-        authenticated: false,
-      });
-    }
-  } catch (error) {
-    console.error("Error checking auth status:", error);
-    res.status(500).json({
-      error: "Failed to check authentication status",
-    });
-  }
-});
+// Auth routes - MUST be after CORS and body parsing
+app.use("/api", toNodeHandler(auth));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -183,29 +132,14 @@ app.use((err, req, res, next) => {
 
 // Start the server
 app.listen(PORT, HOST, () => {
-  console.log(`\n Better Auth Service running on http://${HOST}:${PORT}`);
-  console.log(`Auth endpoints: http://${HOST}:${PORT}/api/auth/*`);
+  console.log(`\n JWT Auth Service running on http://${HOST}:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`\n Allowed Origins:`);
   allowedOrigins.forEach(origin => {
     console.log(`   ✓ ${origin}`);
   });
 
-  console.log(`\n🔐 OAuth Providers Configured:`);
-  const providers = [];
-  if (process.env.GOOGLE_CLIENT_ID) providers.push("Google");
-  if (process.env.GITHUB_CLIENT_ID) providers.push("GitHub");
-  if (process.env.MICROSOFT_CLIENT_ID) providers.push("Microsoft");
-  if (process.env.FACEBOOK_CLIENT_ID) providers.push("Facebook");
-  if (process.env.LINKEDIN_CLIENT_ID) providers.push("LinkedIn");
-
-  if (providers.length > 0) {
-    providers.forEach(p => console.log(`   ✓ ${p}`));
-  } else {
-    console.log(`   ⚠ None (configure in .env file)`);
-  }
-
-  console.log(`\n💡 Stateless JWT authentication with database-backed sessions\n`);
+  console.log(`\n💡 Simple JWT authentication (no database) with hardcoded user\n`);
 });
 
 // Graceful shutdown
