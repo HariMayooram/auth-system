@@ -79,7 +79,6 @@ export const auth = betterAuth({
     },
   },
   advanced: {
-    storeStateStrategy: "cookie",
     useSecureCookies: process.env.NODE_ENV === "production",
     cookieSameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     crossSubDomainCookies: {
