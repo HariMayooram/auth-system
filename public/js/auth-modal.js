@@ -312,7 +312,7 @@ class AuthModal {
             const callbackURL = window.location.href;
 
             // Use configured API URL or fall back to localhost
-            const apiBase = 'http://localhost:3002/api';
+            const apiBase = window.AUTH_API_URL || 'http://localhost:3002/api';
 
             // Better Auth OAuth flow - POST to get OAuth URL
             const response = await fetch(`${apiBase}/auth/sign-in/social`, {
