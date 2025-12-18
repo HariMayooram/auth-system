@@ -15,13 +15,19 @@ export const auth = betterAuth({
     return process.env.BETTER_AUTH_SECRET;
   })(),
   baseURL: (() => {
-    if (process.env.NODE_ENV !== 'production') {
-      return process.env.BASE_URL || "http://localhost:3002";
-    }
-    if (!process.env.BASE_URL) {
+    const baseURL = process.env.NODE_ENV !== 'production'
+      ? (process.env.BASE_URL || "http://localhost:3002")
+      : process.env.BASE_URL;
+
+    // console.log('[Better Auth Config] NODE_ENV:', process.env.NODE_ENV);
+    // console.log('[Better Auth Config] BASE_URL from env:', process.env.BASE_URL);
+    // console.log('[Better Auth Config] Final baseURL:', baseURL);
+
+    if (process.env.NODE_ENV === 'production' && !process.env.BASE_URL) {
       throw new Error("BASE_URL environment variable is required in production");
     }
-    return process.env.BASE_URL;
+
+    return baseURL;
   })(),
   trustedOrigins: (() => {
     const allowedOrigins = process.env.ALLOWED_ORIGINS;
@@ -75,9 +81,15 @@ export const auth = betterAuth({
   advanced: {
     storeStateStrategy: "cookie",
     useSecureCookies: process.env.NODE_ENV === "production",
-    cookieSameSite: "none",
+    cookieSameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     crossSubDomainCookies: {
       enabled: false,
+    },
+    defaultCookieAttributes: {
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      path: "/",
     },
   },
 });
