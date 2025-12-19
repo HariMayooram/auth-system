@@ -103,7 +103,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Auth routes - MUST be after CORS and body parsing
-app.use("/api", toNodeHandler(auth));
+app.use("/api", (req, res, next) => {
+  console.log("Session before auth:", req.session);
+  next();
+}, toNodeHandler(auth));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
