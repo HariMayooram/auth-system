@@ -1,7 +1,26 @@
 import { betterAuth } from "better-auth";
 import dotenv from "dotenv";
+import crypto from "crypto";
 
 dotenv.config();
+
+// In-memory OAuth state store (stateless, no database)
+// Automatically cleans up expired states
+const oauthStateStore = new Map();
+
+// Cleanup expired states every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [state, data] of oauthStateStore.entries()) {
+    // Remove states older than 10 minutes
+    if (now - data.timestamp > 600000) {
+      oauthStateStore.delete(state);
+      console.log(`[State Store] Cleaned up expired state: ${state}`);
+    }
+  }
+}, 300000);
+
+console.log('[State Store] In-memory OAuth state storage initialized');
 
 export const auth = betterAuth({
   // No database configuration - this automatically enables stateless mode
@@ -100,5 +119,59 @@ export const auth = betterAuth({
       httpOnly: true,
       path: "/",
     },
+  },
+  hooks: {
+    before: [
+      {
+        matcher: (context) => {
+          // Intercept OAuth sign-in requests
+          return context.path === "/sign-in/social";
+        },
+        handler: async (request) => {
+          // Generate and store state in memory
+          const state = crypto.randomBytes(32).toString('base64url');
+          const body = await request.json();
+
+          oauthStateStore.set(state, {
+            timestamp: Date.now(),
+            callbackURL: body.callbackURL,
+            provider: body.provider
+          });
+
+          console.log(`[State Store] Stored state for ${body.provider}: ${state}`);
+
+          // Pass the state through
+          return {
+            request: new Request(request.url, {
+              ...request,
+              body: JSON.stringify({ ...body, state })
+            })
+          };
+        }
+      },
+      {
+        matcher: (context) => {
+          // Intercept OAuth callback
+          return context.path.startsWith("/callback/");
+        },
+        handler: async (request) => {
+          const url = new URL(request.url);
+          const state = url.searchParams.get('state');
+
+          if (state && oauthStateStore.has(state)) {
+            console.log(`[State Store] Valid state found: ${state}`);
+            const data = oauthStateStore.get(state);
+            oauthStateStore.delete(state); // One-time use
+
+            // State is valid, allow the request to proceed
+            return { request };
+          } else {
+            console.error(`[State Store] Invalid or missing state: ${state}`);
+            // Let Better Auth handle the error
+            return { request };
+          }
+        }
+      }
+    ]
   },
 });
