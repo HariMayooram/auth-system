@@ -15,16 +15,26 @@ export const auth = betterAuth({
     return process.env.BETTER_AUTH_SECRET;
   })(),
   baseURL: (() => {
-    const baseURL = process.env.NODE_ENV !== 'production'
-      ? (process.env.BASE_URL || "http://localhost:3002")
-      : process.env.BASE_URL;
+    const baseURLFromEnv = process.env.BASE_URL || '';
+    let baseURL;
 
-    // console.log('[Better Auth Config] NODE_ENV:', process.env.NODE_ENV);
-    // console.log('[Better Auth Config] BASE_URL from env:', process.env.BASE_URL);
-    // console.log('[Better Auth Config] Final baseURL:', baseURL);
-
-    if (process.env.NODE_ENV === 'production' && !process.env.BASE_URL) {
-      throw new Error("BASE_URL environment variable is required in production");
+    if (process.env.NODE_ENV === 'production') {
+      // In production, expect a single, valid URL.
+      // Handle the specific '||' case as a fallback.
+      if (baseURLFromEnv.includes('||')) {
+        baseURL = baseURLFromEnv.split('||')[1].trim().replace(/'/g, '');
+      } else {
+        baseURL = baseURLFromEnv;
+      }
+      if (!baseURL) {
+        throw new Error("BASE_URL environment variable is required in production");
+      }
+    } else {
+      // In development, default to localhost if BASE_URL is not set.
+      baseURL = baseURLFromEnv || "http://localhost:3002";
+      if (baseURL.includes('||')) {
+        baseURL = baseURL.split('||')[0].trim().replace(/'/g, '');
+      }
     }
 
     return baseURL;
@@ -79,27 +89,10 @@ export const auth = betterAuth({
     },
   },
   advanced: {
-    cookies: {
-      // Specific configuration for OAuth state cookie
-      // Use "lax" even in production for OAuth callbacks (top-level navigation)
-      state: {
-        attributes: {
-          sameSite: "lax",  // OAuth callbacks need "lax" not "none"
-          secure: process.env.NODE_ENV === "production",
-          httpOnly: true,
-          path: "/",
-        },
-      },
-    },
     useSecureCookies: process.env.NODE_ENV === "production",
-    crossSubDomainCookies: {
-      enabled: false,
-    },
     defaultCookieAttributes: {
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      path: "/",
+      sameSite: "none",
+      secure: true,
     },
   },
   account: {
